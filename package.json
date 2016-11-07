@@ -1,5 +1,6 @@
 {
   "name": "aniwei.usbmuxd",
+  "clientname": "aniwei-usbmux",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -7,5 +8,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "aniwei",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.16.6",
+    "plist": "^2.0.1"
+  }
 }

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+</head>
+<body>
+</body>
+<script>
+  var Relay = require('../index');
+
+  var relay = Relay();
+  var dev;
+
+  relay.connect();
+  relay.on('attached', function (device) {
+    dev = device;
+
+    device.connect(62078).on('connection', function () {
+      device.request()    
+    })
+  });
+
+  relay.on('connection', function () {
+    console.log('success')
+   })
+
+  //var usbmux = require('usbmux');
+
+  // var relay = new usbmux.Relay(22, 2222)
+  // .on('error', function(err) {})
+  // .on('ready', function(udid) {
+  //   usbmux.getTunnel(62078)
+  //     .then(function(tunnel) {
+  //       // tunnel is just a net.Socket connection to the device port
+  //       // you can write / .on('data') it like normal
+  //       assert(tunnel instanceof net.Socket);
+  //       tunnel.write('hello');
+  //     })
+  //     .catch(function(err) {
+  //       console.err(err);
+  //       // "Tunnel failed, Err #3: Port isn't available or open"
+  //     });
+  // })
+
+</script>
+</html>
