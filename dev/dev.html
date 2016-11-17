@@ -1,47 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Document</title>
+    <meta charset="UTF-8">
+    <title>Document</title>
 </head>
+
 <body>
 </body>
 <script>
-  var Relay = require('../index');
+    var app = require('../index');
 
-  var relay = Relay();
-  var dev;
 
-  relay.connect();
-  relay.on('attached', function (device) {
-    dev = device;
+    app.listen()
 
-    device.connect(62078).on('connection', function () {
-      device.request()    
-    })
-  });
+    // relay.run('listen')
+    // relay.run('connect')
+    // relay.task(function () {})
+    // relay.listen();
+    // relay.task(function () {});
+    // relay.task(function () {});
 
-  relay.on('connection', function () {
-    console.log('success')
-   })
 
-  //var usbmux = require('usbmux');
 
-  // var relay = new usbmux.Relay(22, 2222)
-  // .on('error', function(err) {})
-  // .on('ready', function(udid) {
-  //   usbmux.getTunnel(62078)
-  //     .then(function(tunnel) {
-  //       // tunnel is just a net.Socket connection to the device port
-  //       // you can write / .on('data') it like normal
-  //       assert(tunnel instanceof net.Socket);
-  //       tunnel.write('hello');
-  //     })
-  //     .catch(function(err) {
-  //       console.err(err);
-  //       // "Tunnel failed, Err #3: Port isn't available or open"
-  //     });
-  // })
+    /*relay.listen()
+        .on('attached', function(device) {
+            device.connect();
 
+            device.request({
+                Request: 'QueryType',
+                Label: 'aniwei.usbmuxd'
+            })
+
+            device.request({
+                Request: 'StartSession',
+                Label: 'aniwei.usbmuxd'
+
+
+            });
+
+            device.request({
+                Request: 'StartService',
+                Service: 'com.apple.webinspector',
+                Label: 'aniwei.usbmuxd'
+            });
+        })
+
+    /**relay.on('attached', function(device) {
+        dev = device;
+
+        device.connect(62078).on('connection', function() {
+            //var req = this.request();
+            var req = plist.build({
+                Request: 'QueryType',
+                Label: 'aniwei.usbmuxd'
+            })
+
+            relay.connect({
+                MessageType: 'ReadPairRecord',
+                PairRecordID: device.SerialNumber
+            })
+
+            this.socket.write(bufferpack.pack('L', [req.length]));
+            this.socket.write(req);
+
+            var req = plist.build({
+                Request: 'StartService',
+                Service: 'com.apple.webinspector',
+                Label: 'aniwei.usbmuxd'
+            })
+
+            this.socket.write(bufferpack.pack('L', [req.length]));
+            this.socket.write(req);
+        })
+    });
+
+    relay.on('connection', function() {
+        console.log('success')
+    })**/
+
+    //var usbmux = require('usbmux');
+
+    // var relay = new usbmux.Relay(22, 2222)
+    // .on('error', function(err) {})
+    // .on('ready', function(udid) {
+    //   usbmux.getTunnel(62078)
+    //     .then(function(tunnel) {
+    //       // tunnel is just a net.Socket connection to the device port
+    //       // you can write / .on('data') it like normal
+    //       assert(tunnel instanceof net.Socket);
+    //       tunnel.write('hello');
+    //     })
+    //     .catch(function(err) {
+    //       console.err(err);
+    //       // "Tunnel failed, Err #3: Port isn't available or open"
+    //     });
+    // })
 </script>
+
 </html>

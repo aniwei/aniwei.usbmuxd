@@ -1,205 +1,296 @@
 var project = require('../package'),
     net     = require('net'),
-    plist   = require('plist'),
-    _       = require('lodash'),
-    Events  = require('events').EventEmitter,
+    plist       = require('plist'),
+    _           = require('lodash'),
+    Events      = require('events').EventEmitter,
+    async       = require('async'),
+    bufferpack  = require('bufferpack'),
+    noop        = function () {},
     proto;
 
 
-proto = module.exports = function () {
-  return new Relay();
+proto = module.exports = createApplication;
+
+function createApplication () {
+    return new Relay();
 }
 
-function Connection () {
-  this.isConnect = false;
-}
+function Connection() {}
 
-Connection.prototype = _.assign({
-  __proto__: Events.prototype,
-  errors: {
-    '2': 'iOS Devices is not connected',
-    '3': 'Port is not available or open',
-    '5': 'Malformed Request'
-  },
-  
-  // /var/run/usbmuxd
-  address: process.platform == 'win32' ?
-    {port: 27015} : {path: '/var/run/usbmuxd'},
+Events.prototype.__proto__ = async;
 
-  headerLength: 16,
+Connection.prototype = {
+    __proto__: Events.prototype,
+    errors: {
+        '2': 'iOS Devices is not connected',
+        '3': 'Port is not available or open',
+        '5': 'Malformed Request'
+    },
 
-  client: {
-    MessageType: 'Listen',
-    ClientVersionString: project.name,
-    ProgName: project.name
-  },
+    // /var/run/usbmuxd
+    address: process.platform == 'win32' ? { port: 27015 } : { path: '/var/run/usbmuxd' },
 
-  protocolBuilder: function (param) {
-    return this.contentBuilder(_.assign(param || {}, {
-      ClientVersionString: project.name,
-      ProgName: project.name
-    }));
-  },
+    length: 16,
 
-  contentBuilder: function (json) {
-    var jsonBuffer    = new Buffer(plist.build(json)),
-        headerBuffer  = new Buffer(16);
+    dataFormatter: function(data) {
+        var length,
+            content,
+            that,
+            res
 
-    // 从offset 0开始写入头部
-    // https://www.theiphonewiki.com/wiki/Usbmux
-    // 写入数据大小 
-    headerBuffer.writeUInt32LE(jsonBuffer.length + this.headerLength);
+        length = data.readUInt32LE(0) - this.length;
+        data = data.slice(this.length);
+        content = data.slice(0, length);
+        data = data.slice(length);
+        res = [plist.parse(content.toString())];
+        that = this;
 
-    // 写入版本
-    headerBuffer.writeUInt32LE(1, 4);
+        if (data.length > 0) {
+            res = res.concat(this.dataFormatter(data));
+        }
 
-    // rcg4u/iphonessh
-    headerBuffer.writeUInt32LE(8, 8);
+        return res;
+    },
 
-    //
-    headerBuffer.writeUInt32LE(1, 12);
-   
-    return Buffer.concat([headerBuffer, jsonBuffer]);
-  },
+    dispatch: function(action) {
+        var handle = this['on' + action.messageType];
 
-  dataFormatter: function (data) {
-    var length,
-        content,
-        res
+        handle = handle || this['on' + action.type];
 
-    length  = data.readUInt32LE(0) - this.headerLength;
-    data    = data.slice(this.headerLength);
-    content = data.slice(0, length);
-    data    = data.slice(length);
+        if (typeof handle == 'function') {
+            handle.apply(this, arguments);
+        }
+    },
 
-    res = [plist.parse(content.toString())];
+    messageType: function(type, others) {
+        var proto = {
+            ClientVersionString: project.name,
+            ProgName: project.name,
+            BundleID: project.originzation
+        }
 
-    if (data.length > 0) {
-      res = res.concat(this.dataFormatter(data));
-    } 
-    
-    return res;
-  },
+        this.messageType = function(type, others) {
+            return _.assign({
+                MessageType: type
+            }, proto, others);
+        }
 
-  dispatch: function (action) {
-    var handle = this['on' + action.type];
+        return this.messageType(type, others);
+    },
 
-    if (typeof handle == 'function') {
-      handle.apply(this, arguments);
-    }
-  },
+    plist: function(json) {
+        var content = new Buffer(plist.build(json)),
+            header = new Buffer(16);
 
-  connect: function (plist) {
-    var content = this.protocolBuilder(plist || this.client),
-        that    = this,
-        socket;
+        // 从offset 0开始写入头部
+        // https://www.theiphonewiki.com/wiki/Usbmux
+        // 写入数据大小 
+        header.writeUInt32LE(content.length + this.length);
 
-    socket  = net.connect(this.address, function () {
-      socket.write(content);
-    });
-      
-    socket.on('data', function (data) {
-      var res = that.dataFormatter(data) || [];
+        // 写入版本
+        header.writeUInt32LE(1, 4);
 
-      if (res.length > 0) {
-        res.forEach(function (res, i) {
-          var type = (res.MessageType || '').replace(/\w/, function ($1) {
-            return $1.toUpperCase()
-          });
+        // rcg4u/iphonessh
+        header.writeUInt32LE(8, 8);
 
-          that.dispatch({
-            type: type,
-            data: res
-          });        
+        //
+        header.writeUInt32LE(1, 12);
+
+        return Buffer.concat([header, content]);
+    },
+
+    communicate: function(addr, plist, type) {
+        var socket,
+            that = this;
+
+        socket = net.connect(addr);
+
+        socket.on('data', function (res) {
+            var results = that.dataFormatter(res);
+
+            results.forEach(function(res) {
+                that.dispatch({
+                    messageType: res.MessageType,
+                    type: type,
+                    data: res
+                });
+            });
         });
-      }
-    });
 
-    return this;
-  },
+        if (!Array.isArray(plist)) {
+            plist = [plist];
+        }
 
-  onResult: function (res) {
-    var data = res.data,
-        err;
+        plist.forEach(function(plist) {
+            socket.write(plist);
+        });
 
-    if (data.Number) {
-      err = this.errors[data.Number] || 'Unknown Error';
+        return socket;
+    },
+
+    connect: function (id, port, callback) {
+        var port = port || 62078,
+            plist = this.plist(this.messageType('Connect', {
+                DeviceID: id,
+                PortNumber: ((port & 0xFF) << 8) | ((port >> 8) & 0xFF)
+            })),
+            socket;
+
+        callback = callback || noop;
+
+        socket = this.communicate(this.address, plist, 'Connect');
+
+        this.on('connected', function (res) {
+            callback(res)
+        });
+
+        return this;
+    },
+
+    record: function (type, serial, callback) {
+        var plist = this.plist(this.messageType(type, {
+                PairRecordID: serial,
+            })),
+            socket;
+
+        callback = callback || noop;
+
+        socket = this.communicate(this.address, plist, 'Record');
+        
+
+        this.on('record', function (res) {
+            callback(res, socket)
+        });
+    },
+
+    buid: function (callback) {
+        var plist = this.plist(this.messageType('ReadBUID'));
+
+        socket = this.communicate(this.address, plist, 'Buid');
+
+        this.on('buid', function (res) {
+            callback(res);
+        });
+    },
+
+    session: function (json, socket, callback) {
+        var plist = this.plist({
+            Request: 'QueryType'
+        }),
+            socket;
+
+        callback = callback || noop;
+
+        console.log(plist.toString())
+
+        //socket.write(bufferpack.pack('L', [plist.length]));
+        socket.write(plist);
+        
+        this.on('record', function (res) {
+            callback(res, socket)
+        });
+    },
+
+    listen: function() {
+        var plist = this.plist(this.messageType('Listen')),
+            socket;
+
+        socket = this.communicate(this.address, plist, 'Listen');
+
+        this.on('attached', function (device) {
+            var first = this.stack[0];
+
+            this.stack[0] = function (next) {
+                first(device, next);
+            }
+
+            this.waterfall(this.stack, function () {
+
+            });
+        });
+
+        return this;
+    },
+
+    onAttached: function(res) {
+        var data    = res.data,
+            device  = _.assign(data.Properties);
+
+        this.devices.push(device);
+
+        this.emit('attached', device);
+    },
+
+    onRecord: function (res) {
+        var data = res.data,
+            record;
+
+        if (data.PairRecordData) {
+            record = plist.parse(data.PairRecordData.toString());
+        }
+
+        this.emit('record', record);
+    },
+
+    onBuid: function (res) {
+        var data = res.data;
+    
+        this.emit('buid', data.BUID);
+    },
+
+    onResult: function (res) {
+        var data    = res.data,
+            type    = res.type,
+            handle;
+
+        if (data.Number === 0) {
+            return this.dispatch({
+                messageType: type,
+                data: data
+            });
+        }
+
+        throw new Error(data.Number)
+    },
+
+    onConnect: function (res) {
+        this.emit('connected', res.data);
+    },
+
+    onDetached: function(res) {
+        var data = res.data,
+            properties = data.Properties || {},
+            index,
+            device;
+
+        if (this.devices.some(function(device, i) {
+            if (device.SerialNumber == properties.SerialNumber) {
+                index = i;
+                return true;
+            }
+        })) {
+            device = this.devices[index];
+
+            this.devices.splice(index, 1);
+        }
+
+        this.emit('detached', device);
     }
-
-    if (err) {
-      throw err;
-    }
-
-    this.emit('connection');
-  }
-});
-
-function Relay () {
-  this.devices    = [];
 }
 
-Relay.prototype = _.assign({
-  __proto__: Connection.prototype,
 
-  onAttached: function (res) {
-    var data        = res.data,
-        properties  = data.Properties || {},
-        device      = new Device(properties);
-
-    this.devices.push(device);
-
-    this.emit('attached', device);
-  },
-
-  onDetached: function (res) {
-     var data        = res.data,
-         properties  = data.Properties || {},
-         index,
-         device;
-
-    if (this.devices.some(function (device, i) {
-      if (device.SerialNumber == properties.SerialNumber) {
-        index = i;
-        return true;
-      }
-    })) {
-      device = this.devices[index];
-
-      this.devices.splice(index, 1);
-    }
-
-    this.emit('detached', device);
-  }
-});
-
-function Device (properties) {
-  _.assign(this, properties);
+function Relay() {
+    this.devices    = [];
+    this.stack      = [];
 }
 
-Device.prototype = _.assign({
-  __proto__: Connection.prototype,
-  connect: function (port) {
-    port = port || 22;
+Relay.prototype = {
+    __proto__: Connection.prototype,
+    use: function (callback) {
+        if (typeof callback == 'function') {
+            this.stack.push(callback);
+        }
 
-    return Connection.prototype.connect.call(this, {
-      ClientVersionString: project.name,
-      ProgName: project.name,
-      MessageType: 'Connect',
-      DeviceID: this.DeviceID,
-      PortNumber: ((port & 0xFF) << 8) | ((port >> 8) & 0xFF)
-    });
-  },
-
-  protocolBuilder: function (param) {
-    return this.contentBuilder(param);
-  },
-
-  request: function (payload) {
-    return Connection.prototype.connect.call(this, {
-      __selector: '_rpc_reportIdentifier:',
-      __argument: {
-        WIRConnectionIdentifierKey: '3b417e9a-9635-4059-a63e-ca88c98744bf'
-      }
-    });
-  }
-});
+        return this;
+    }
+};
