@@ -11,8 +11,10 @@
   "license": "ISC",
   "dependencies": {
     "async": "^2.1.2",
+    "bplist-parser": "^0.1.1",
     "bufferpack": "0.0.6",
     "lodash": "^4.16.6",
+    "node-forge": "^0.6.46",
     "plist": "^2.0.1"
   },
   "devDependencies": {
