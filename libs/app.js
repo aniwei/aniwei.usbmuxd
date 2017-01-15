@@ -1,16 +1,17 @@
-var net             = require('net'),
-    Emitter         = require('events').EventEmitter,
-    _               = require('lodash'),
-    errorMap        = require('./errors'),
-    config          = require('./config'),
+var Emitter         = require('events').EventEmitter,
+    assign          = require('lodash').assign,
     project         = require('../package'),
-    formatter       = require('./formatter'),
-    usbmuxd         = require('./usbmuxd'),
+    usbmuxd         = require('./core/usbmuxd'),
+    Lockdownd       = require('./core/lockdownd'),
+    Inspector       = require('./core/Inspector'),
     noop            = function () {},
     proto;
 
 
 proto = module.exports = createApplication;
+
+proto.Lockdownd = Lockdownd;
+proto.Inspector = Inspector;
 
 function createApplication () {
   return new Application();
@@ -19,33 +20,26 @@ function createApplication () {
 function Application (options) {
   options = options || {};
 
-  this.client = {
+  this.clientVersionString = {
     ClientVersionString: options.name         || project.name,
     ProgName:            options.name         || project.name,
     BundleID:            options.originzation || project.originzation
-  };
+  }
 }
 
 Application.prototype = {
   __proto__: Emitter.prototype,
 
-  type: function (type, others) {
-    return _.assign({
-      MessageType: type
-    }, this.client, others);
-  },
-
-  listen: function () {
-    var plist = formatter.plist(this.type('Listen')),
+  listen: function (callback) {
+    var json = assign({
+          MessageType: 'Listen'
+        }, this.clientVersionString),
+        self  = this,
         handle;
 
-    usbmuxd.listen(plist);
-
-    ['attached', 'detached'].forEach(function (key) {
-      usbmuxd.on(key, function () {
-
-      });
-    });
+    usbmuxd.listen(json, (function (json) {
+      this.emit(json.type, json.data, json.socket);
+    }).bind(this));
 
     return this;
   }

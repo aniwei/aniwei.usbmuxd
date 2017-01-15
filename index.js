@@ -1,13 +1,32 @@
-var Usbmuxd = require('./libs/app'),
-    app     = Usbmuxd(),
-  forge           = require('node-forge'),
-  tls             = require('tls'),
-  pki             = forge.pki;
+var App        = require('./libs/app'),
+    app        = App(),
+    Lockdownd  = App.Lockdownd,
+    Inspector  = App.Inspector;
 
 
 app.listen();
-app.on('atached', function () {
-  debugger;
+
+app.on('attached', function (data) {
+  var lockdownd = new Lockdownd({
+        id:     data.DeviceID,
+        serial: data.Properties.SerialNumber
+      });
+
+  lockdownd.startService({
+    service: 'com.apple.webinspector'
+  }, function (service) {
+    lockdownd.connect(service.port, function (socket) {
+
+    })
+  });
+
+  lockdownd.on('error', function (mess) {
+    console.log(mess);
+  });
+});
+
+app.on('', function () {
+
 })
 
 
