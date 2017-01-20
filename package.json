@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "commit": "git add . && git commit -m \"更新代码\" && git push origin ${BRANCH}"
+    "commit": "git add . && git commit -m \"更新代码\" && git push origin ${branch}"
   },
   "author": "aniwei",
   "license": "ISC",
