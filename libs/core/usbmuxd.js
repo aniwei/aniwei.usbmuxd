@@ -3,7 +3,14 @@ var receiver  = require('./receiver'),
     formatter = require('./formatter'),
     net       = require('net'),
     Emitter   = require('events').EventEmitter,
-    noop      = function () {};
+    noop      = function () {},
+    map;
+
+map = {
+  '2': 'iOS Devices is not connected.',
+  '3': 'Port is not available or open.',
+  '5': 'Malformed Request.'
+}
 
 module.exports = {
   __proto__: Emitter.prototype,
@@ -23,7 +30,11 @@ module.exports = {
             data: json
           });
           break;
+        case 'Result':
+          json.Number === 0 ?
+            callback(json) : this.emit('error', map[json.Number] || 'Cannot listen usbmuxd');
+          break;
       }
-    }).bind(this));
+    }).bind(this), 'little-endian');
   }
 }

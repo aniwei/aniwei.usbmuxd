@@ -65,7 +65,7 @@ Lockdownd.prototype = {
 
           break;
       }
-    }).bind(this));
+    }).bind(this), 'little-endian');
 
     this.socket     = socket;
     this.connecting = true;
@@ -103,7 +103,7 @@ Lockdownd.prototype = {
       };
 
       callback(json);
-    }).bind(this));
+    }).bind(this), 'little-endian');
   },
 
   startService: function (options, callback) {
@@ -141,12 +141,12 @@ Lockdownd.prototype = {
         }
 
         done();
-      }).bind(this));
+      }).bind(this), 'big-endian');
 
     }).bind(this));
 
     async.series(series, (function () {
-      callback.call(this, this.service);
+      callback.call(this, this.service, root);
     }).bind(this));
   },
 
@@ -169,6 +169,7 @@ Lockdownd.prototype = {
 
     series.push((function (done) {
       var plist = formatter.bplist({
+            Label:      '111',
             Request:    'StartSession',
             HostID:     this.host.id,
             SystemBUID: this.buid
@@ -183,7 +184,7 @@ Lockdownd.prototype = {
         }
 
         done();
-      }).bind(this));
+      }).bind(this), 'big-endian');
 
     }).bind(this));
 

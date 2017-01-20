@@ -5,7 +5,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "commit": "git add . && git commit -m \"更新代码\" && git push origin ${BRANCH}"
   },
   "author": "aniwei",
   "license": "ISC",
@@ -15,7 +16,8 @@
     "bufferpack": "0.0.6",
     "lodash": "^4.16.6",
     "node-forge": "^0.6.46",
-    "plist": "^2.0.1"
+    "plist": "^2.0.1",
+    "uuid": "^3.0.1"
   },
   "devDependencies": {
     "bufferpack": "0.0.6"

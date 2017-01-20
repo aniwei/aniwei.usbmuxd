@@ -5,14 +5,16 @@ var receiver  = require('./receiver'),
     address   = isWin32 ? { port: 27015 } : { path: '/var/run/usbmuxd' },
     map;
 
-function packet (plist, socket, type, callback) {
+function packet (plist, socket, type, callback, endian) {
   if (typeof socket == 'function') {
+    endian   = type;
     callback = socket;
     socket   = undefined;
     type     = 'xml';
   }
 
   if (typeof type == 'function') {
+    endian   = callback;
     callback = type;
     type     = undefined;
 
@@ -32,7 +34,7 @@ function packet (plist, socket, type, callback) {
 
   socket.on('data', receiver.receive(type, function (res) {
     callback(res);
-  }));
+  }, endian));
 
   if (!Array.isArray(plist.data)) {
     plist.data = [plist.data];

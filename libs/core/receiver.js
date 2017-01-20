@@ -3,11 +3,12 @@ var formatter   = require('./formatter'),
     noop        = function () {};
 
 module.exports = {
-  xml: function (callback) {
+  xml: function (callback, type) {
     var total = 16,
         json,
         cache;
 
+    type = type || 'little-endian';
 
     return function receive (data) {
       var length,
@@ -18,11 +19,8 @@ module.exports = {
       json = json || {};
 
       if (!('length' in json)) {
-        if (data.length === 4) {
-          length = data.readUInt32BE(0);
-        } else {
-          length = data.readUInt32LE(0) - total;
-        }
+        length = type == 'little-endian' ?
+          data.readUInt32LE(0) - 16 : data.readUInt32BE('0');
 
         source = data.slice(total);
         json.length = length;
@@ -54,27 +52,57 @@ module.exports = {
     }
   },
 
-  binary: function (callback) {
-    var length,
-        data = [],
-        size = 0;
+  binary: function (callback, type) {
+    var total = 4,
+        json,
+        cache;
 
-    return function receive(res) {
-      if (length === undefined) {
-        length = bufferpack.unpack('L', res)[0];
+    type = type || 'little-endian';
+
+    return function receive (data) {
+      var length,
+          content,
+          self,
+          source;
+
+      json = json || {};
+
+      if (!('length' in json)) {
+        length = type == 'little-endian' ?
+          data.readUInt32LE(0) - 4 : data.readUInt32BE('0');
+
+        source = data.slice(total);
+        json.length = length;
+      } else {
+        length = json.length;
+        source = data;
       }
 
-      data = data.concat(res);
-      size += res.length;
+      content = source.slice(0, length);
 
-      if (res.length === length) {
-        callback(Buffer.concat(data, size));
+      if (content.length > 0) {
+        json.content = formatter.parse(content);
+      }
+
+      data    = source.slice(length);
+      self    = this;
+
+      if (json.content) {
+        if (json.length > 0) {
+          callback(json.content);
+
+          json = undefined;
+        }
+      }
+
+      if (data.length > 0) {
+        receive.call(this, data)
       }
     }
   },
 
-  receive: function (type, callback) {
-    var handle = (type.toLowerCase() == 'xml' ? this.xml : this.binary)(callback);
+  receive: function (type, callback, endian) {
+    var handle = (type.toLowerCase() == 'xml' ? this.xml : this.binary)(callback, endian);
 
     return function (data) {
       try {
