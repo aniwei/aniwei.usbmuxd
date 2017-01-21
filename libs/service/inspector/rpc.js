@@ -1,6 +1,7 @@
 var uuid    = require('uuid'),
     assign  = require('lodash').assign,
     Emitter = require('events').EventEmitter,
+    Bundle  = require('./bundle'),
     rpcTablel,
     noop;
 
@@ -19,12 +20,8 @@ module.exports = function () {
 }
 
 function RPC () {
-  this.id       = uuid.v4();
-  this.sender   = uuid.v4();
-  this.apps     = {};
-  this.key      = null;
-  this.setuped  = false;
-  this.current  = null;
+  this.id           = uuid.v4();
+  this.bundleTable  = {};
 }
 
 RPC.prototype = {
@@ -40,14 +37,20 @@ RPC.prototype = {
     };
   },
 
-  _rpc_forwardGetListing: function (app) {
+  _rpc_forwardGetListing: function (appKey) {
     return {
-      WIRApplicationIdentifierKey: app,
+      WIRApplicationIdentifierKey: appKey,
       WIRConnectionIdentifierKey:  this.id
     }
   },
 
   _rpc_reportIdentifier: function () {
+    return {
+      WIRConnectionIdentifierKey: this.id
+    }
+  },
+
+  _rpc_getConnectedApplications: function () {
     return {
       WIRConnectionIdentifierKey: this.id
     }

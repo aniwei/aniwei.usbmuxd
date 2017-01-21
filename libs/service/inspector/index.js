@@ -2,6 +2,7 @@ var receiver    = require('../../core/receiver'),
     formatter   = require('../../core/formatter'),
     RPC         = require('./rpc'),
     Service     = require('../../core/service'),
+    Bundle      = require('./bundle'),
     Emitter     = require('events').EventEmitter,
     noop        = function () {},
     MAX_RPC_LEN = 8096 - 500;
@@ -47,24 +48,13 @@ module.exports = {
     this.packet('_rpc_forwardSocketData', json);
   },
 
-  startSession: function (app, index, callback) {
-    var appPage = app.page,
-        page;
-
+  startSession: function (bundle, callback) {
     callback = (callback || noop).bind(this);
 
-    appPage.some(function (p) {
-      if (p.key !== index) {
-        return false
-      }
+    if (!bundle.page) {
+      debugger;
 
-      page = p;
-
-      return true;
-    });
-
-    if (!(page === undefined)) {
-      this.packet('_rpc_forwardSocketSetup', app.key, index);
+      this.packet('_rpc_forwardSocketSetup', bundle.key, bundle.page.key);
 
       this.rpc.once('_rpc_applicationUpdated:', function (args) {
         var isActive = args.WIRIsApplicationActiveKey === index &&
@@ -79,50 +69,57 @@ module.exports = {
   },
 
   connect: function (callback) {
+    var rpc = this.rpc;
+
     callback = (callback || noop).bind(this);
 
     this.packet('_rpc_reportIdentifier');
+    this.packet('_rpc_getConnectedApplications');
 
-    this.rpc.on('_rpc_reportConnectedApplicationList:', (function (args) {
-      var dict = args.WIRApplicationDictionaryKey;
+    // 设置app列表
+    rpc.on('_rpc_reportConnectedApplicationList:', (function (argv) {
+      var dict = argv.WIRApplicationDictionaryKey;
 
       Object.keys(dict).forEach((function (pid) {
-        var app   = dict[pid],
-            name  = app.WIRApplicationNameKey;
+        var app     = dict[pid];
+            name    = app.WIRApplicationBundleIdentifierKey,
+            bundle  = this.bundleTable[name];
 
-        this.apps[name] = {
-          bundle: app.WIRApplicationBundleIdentifierKey,
-          key:    app.WIRApplicationIdentifierKey,
-          name:   name,
-          page:   []
-        };
+        if (!bundle) {
+          this.bundleTable[name] = new Bundle(name, pid);
+        }
       }).bind(this.rpc));
     }).bind(this));
 
-    this.rpc.on('_rpc_applicationSentListing:', (function (args) {
-      var apps    = this.apps,
-          key     = args.WIRApplicationIdentifierKey,
-          listing = args.WIRListingKey;
+    rpc.on('_rpc_applicationSentListing:', (function (argv) {
+      var bundleTable = rpc.bundleTable,
+          key         = argv.WIRApplicationIdentifierKey,
+          table       = argv.WIRListingKey,
+          bundle;
 
-      Object.keys(apps).some(function (name) {
-        var app = apps[name];
+      Object.keys(bundleTable).some(function (name) {
+        var ref = bundleTable[name];
 
-        if (app.key == key) {
-          return app.page = Object.keys(listing).map(function (index) {
-            var page = listing[index];
-
-            return {
-              key:    page.WIRPageIdentifierKey,
-              title:  page.WIRTitleKey,
-              type:   page.WIRTypeKey,
-              url:    page.WIRURLKey
-            };
-          })
+        if (bundleTable[name].key === key) {
+          return bundle = ref;
         }
       });
 
-      callback(this.apps);
-    }).bind(this.rpc));
+      if (bundle) {
+        bundle.pageTable = Object.keys(table).map(function (index) {
+          var page = table[index];
+
+          return {
+            key:    page.WIRPageIdentifierKey,
+            title:  page.WIRTitleKey,
+            type:   page.WIRTypeKey,
+            url:    page.WIRURLKey
+          };
+        });
+      }
+
+      callback(rpc.bundleTable);
+    }).bind(this));
   },
 
   packet: function (sel) {
