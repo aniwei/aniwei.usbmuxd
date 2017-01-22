@@ -15,18 +15,7 @@ rpcTable = {
   _rpc_forwardSocketData:         '_rpc_forwardSocketData:'
 };
 
-module.exports = function () {
-  return new RPC();
-}
-
-function RPC () {
-  this.id           = uuid.v4();
-  this.bundleTable  = {};
-}
-
-RPC.prototype = {
-  __proto__: Emitter.prototype,
-
+module.exports = {
   select: function (type) {
     var argv      = [].slice.call(arguments, 1),
         rpc       = this[type] || noop;
@@ -37,43 +26,40 @@ RPC.prototype = {
     };
   },
 
-  _rpc_forwardGetListing: function (appKey) {
+  _rpc_forwardGetListing: function (bundle) {
     return {
-      WIRApplicationIdentifierKey: appKey,
-      WIRConnectionIdentifierKey:  this.id
+      WIRApplicationIdentifierKey: bundle.app,
+      WIRConnectionIdentifierKey:  bundle.uuid
     }
   },
 
-  _rpc_reportIdentifier: function () {
+  _rpc_reportIdentifier: function (bundle) {
     return {
-      WIRConnectionIdentifierKey: this.id
+      WIRConnectionIdentifierKey: bundle.uuid
     }
   },
 
-  _rpc_getConnectedApplications: function () {
+  _rpc_getConnectedApplications: function (bundle) {
     return {
-      WIRConnectionIdentifierKey: this.id
+      WIRConnectionIdentifierKey: bundle.uuid
     }
   },
 
-  _rpc_forwardSocketSetup: function (app, index) {
-    this.index      = index;
-    this.current    = app;
-
+  _rpc_forwardSocketSetup: function (bundle) {
     return {
-      WIRSenderKey:                 this.sender,
-      WIRPageIdentifierKey:         this.index,
-      WIRConnectionIdentifierKey:   this.id,
-      WIRApplicationIdentifierKey:  this.current
+      WIRConnectionIdentifierKey:   bundle.uuid,
+      WIRSenderKey:                 bundle.sender,
+      WIRPageIdentifierKey:         bundle.index,
+      WIRApplicationIdentifierKey:  bundle.app
     };
   },
 
-  _rpc_forwardSocketData: function (data) {
+  _rpc_forwardSocketData: function (bundle, data) {
     return {
-      WIRSenderKey:                 this.sender,
-      WIRPageIdentifierKey:         this.index,
-      WIRConnectionIdentifierKey:   this.id,
-      WIRApplicationIdentifierKey:  this.current,
+      WIRConnectionIdentifierKey:   bundle.uuid,
+      WIRSenderKey:                 bundle.sender,
+      WIRPageIdentifierKey:         bundle.index,
+      WIRApplicationIdentifierKey:  bundle.app,
       WIRSocketDataKey:             data
     };
   }

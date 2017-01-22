@@ -6,9 +6,11 @@ module.exports = {
   xml: function (callback, type) {
     var total = 16,
         json,
-        cache;
+        cache,
+        size
 
-    type = type || 'little-endian';
+    type  = type || 'little-endian';
+    size  = 0;
 
     return function receive (data) {
       var length,
@@ -16,7 +18,8 @@ module.exports = {
           self,
           source;
 
-      json = json || {};
+      json  = json || {};
+      self  = this;
 
       if (!('length' in json)) {
         length = type == 'little-endian' ?
@@ -29,25 +32,52 @@ module.exports = {
         source = data;
       }
 
-      content = source.slice(0, length);
+      if (cache) {
+        if (data.length > length - size) {
+          source = data.slice(0, length - size);
+          size   += source.length;
+        } else {
+          source = data;
+          size  += source.length;
 
-      if (content.length > 0) {
-        json.content = formatter.parse(content);
-      }
+          cache.push(source);
+        }
 
-      data    = source.slice(length);
-      self    = this;
+        if (size === length) {
+          content = Buffer.concat(cache, size);
 
-      if (json.content) {
-        if (json.length > 0) {
-          callback(json.content);
+          cache = undefined;
+          size  = 0;
+        }
+      } else {
+        if (source.length < json.length) {
+          cache = cache || [];
+          size += source.length;
 
-          json = undefined;
+          cache.push(source);
+        } else {
+          content = source.slice(0, length);
         }
       }
 
-      if (data.length > 0) {
-        receive.call(this, data)
+      if (content) {
+        if (content.length > 0) {
+          json.content = json.content = formatter.parse(content);
+        }
+
+        data = source.slice(length);
+
+        if (json.content) {
+          if (json.length > 0) {
+            callback(json.content);
+
+            cache = json = undefined;
+          }
+        }
+
+        if (data.length > 0) {
+          receive.call(this, data)
+        }
       }
     }
   },
