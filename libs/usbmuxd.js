@@ -5,6 +5,8 @@ var project = require('../package'),
     Events      = require('events').EventEmitter,
     async       = require('async'),
     bufferpack  = require('bufferpack'),
+    creater     = require('bplist-creator'),
+    parser      = require('bplist-parser'),
     noop        = function () {},
     proto;
 
@@ -226,7 +228,12 @@ Connection.prototype = {
             record;
 
         if (data.PairRecordData) {
-            record = plist.parse(data.PairRecordData.toString());
+            try {
+                record = plist.parse(data.PairRecordData.toString());
+            } catch (Error) {
+                record = parser.parseBuffer(data.PairRecordData.toString())
+            }
+            
         }
 
         this.emit('record', record);

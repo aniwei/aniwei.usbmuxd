@@ -9,6 +9,7 @@ app.use(function (device, next) {
 });
 
 app.use(function (device, next) {
+  debugger;
   app.record('ReadPairRecord', device.SerialNumber, function (record, socket) {
     next(null, device, record, socket);
   })
