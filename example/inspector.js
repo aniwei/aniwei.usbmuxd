@@ -1,20 +1,21 @@
 var inspector = require('../libs/service/inspector');
 
 inspector.start(function (bundleManager) {
-  var bundle = bundleManager.get('com.apple.WebKit.WebContent'),
-      page;
+  var bundle = bundleManager.get('com.apple.WebKit.WebContent');
 
   if (!bundle) {
     return this;
   }
 
   bundle.listing(function (pages) {
-    var page = pages.get('page').pop();
+    var pages = pages.get('page'),
+        page;
 
-    if (!page) {
+    if (!pages || pages.length === 0) {
       return this;
     }
 
+    page = pages.pop();
     page.startSession(function (page) {
       var enableTable;
 

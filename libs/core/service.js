@@ -18,7 +18,7 @@ Service.prototype = {
   __proto__: Emitter.prototype,
 
   start: function (callback) {
-    this.app = new App();
+    this.app = this.app || new App();
 
     callback = callback || noop;
 
