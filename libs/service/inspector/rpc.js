@@ -12,7 +12,8 @@ rpcTable = {
   _rpc_getConnectedApplications:  '_rpc_getConnectedApplications:',
   _rpc_forwardGetListing:         '_rpc_forwardGetListing:',
   _rpc_forwardSocketSetup:        '_rpc_forwardSocketSetup:',
-  _rpc_forwardSocketData:         '_rpc_forwardSocketData:'
+  _rpc_forwardSocketData:         '_rpc_forwardSocketData:',
+  _rpc_forwardIndicateWebView:    '_rpc_forwardIndicateWebView:'
 };
 
 module.exports = {
@@ -26,9 +27,18 @@ module.exports = {
     };
   },
 
+  _rpc_forwardIndicateWebView: function (bundle) {
+    return {
+      WIRApplicationIdentifierKey: bundle.key,
+      WIRConnectionIdentifierKey:  bundle.uuid,
+      WIRPageIdentifierKey:        bundle.index,
+      WIRIndicateEnabledKey:       true
+    }
+  },
+
   _rpc_forwardGetListing: function (bundle) {
     return {
-      WIRApplicationIdentifierKey: bundle.app,
+      WIRApplicationIdentifierKey: bundle.key,
       WIRConnectionIdentifierKey:  bundle.uuid
     }
   },
@@ -48,9 +58,10 @@ module.exports = {
   _rpc_forwardSocketSetup: function (bundle) {
     return {
       WIRConnectionIdentifierKey:   bundle.uuid,
+      WIRAutomaticallyPause:        false,
       WIRSenderKey:                 bundle.sender,
       WIRPageIdentifierKey:         bundle.index,
-      WIRApplicationIdentifierKey:  bundle.app
+      WIRApplicationIdentifierKey:  bundle.key
     };
   },
 
@@ -59,7 +70,7 @@ module.exports = {
       WIRConnectionIdentifierKey:   bundle.uuid,
       WIRSenderKey:                 bundle.sender,
       WIRPageIdentifierKey:         bundle.index,
-      WIRApplicationIdentifierKey:  bundle.app,
+      WIRApplicationIdentifierKey:  bundle.key,
       WIRSocketDataKey:             data
     };
   }

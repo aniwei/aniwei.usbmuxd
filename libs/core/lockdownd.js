@@ -1,6 +1,7 @@
 var receiver  = require('./receiver'),
     formatter = require('./formatter'),
     packet    = require('./packet'),
+    logger    = require('./logger'),
     net       = require('net'),
     Emitter   = require('events').EventEmitter,
     async     = require('async'),
@@ -56,6 +57,8 @@ Lockdownd.prototype = {
       switch (json.MessageType) {
         case 'Result':
           if (json.Number === 0) {
+            logger.print('lockdownd', 'the lockdownd service was connected, portNumber is ' + port);
+
             callback(socket);
           } else {
             mess = map[json.Number];

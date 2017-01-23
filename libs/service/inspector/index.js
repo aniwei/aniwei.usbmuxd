@@ -1,6 +1,7 @@
 var receiver        = require('../../core/receiver'),
     formatter       = require('../../core/formatter'),
     Service         = require('../../core/service'),
+    logger          = require('../../core/logger'),
     BundleManager   = require('./bundle'),
     Emitter         = require('events').EventEmitter,
     uuid            = require('uuid'),
@@ -20,12 +21,15 @@ module.exports = {
     service.start((function (socket, lockdownd) {
       var bundleManager = new BundleManager(socket);
 
-      this.lockdownd = lockdownd;
-      this.socket    = socket;
+      logger.print('service', 'the com.apple.webinspector service was connected');
 
+      this.lockdownd      = lockdownd;
+      this.socket         = socket;
       this.bundleManager  = bundleManager;
 
       bundleManager.registe(function () {
+        logger.print('webinspector', 'the webinspector connection was registed');
+
         callback.call(bundleManager, bundleManager, lockdownd);
       });
     }).bind(this));

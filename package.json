@@ -20,6 +20,7 @@
     "uuid": "^3.0.1"
   },
   "devDependencies": {
-    "bufferpack": "0.0.6"
+    "bufferpack": "0.0.6",
+    "colors": "^1.1.2"
   }
 }

@@ -1,6 +1,7 @@
 var receiver  = require('./receiver'),
     packet    = require('./packet'),
     formatter = require('./formatter'),
+    logger    = require('./logger'),
     net       = require('net'),
     Emitter   = require('events').EventEmitter,
     noop      = function () {},
@@ -33,8 +34,12 @@ module.exports = {
         case 'Result':
           json.Number === 0 ?
             callback(json) : this.emit('error', map[json.Number] || 'Cannot listen usbmuxd');
+
+          logger.print('usxmuxd', 'the Unix Domain Socket, usbmuxd, was listened');
           break;
       }
     }).bind(this), 'little-endian');
+
+
   }
 }
