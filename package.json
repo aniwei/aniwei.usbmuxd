@@ -5,19 +5,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "commit": "git add . && git commit -m \"更新代码\" && git push origin ${branch}"
   },
   "author": "aniwei",
   "license": "ISC",
   "dependencies": {
     "async": "^2.1.2",
-    "bplist-creator": "0.0.7",
     "bplist-parser": "^0.1.1",
     "bufferpack": "0.0.6",
     "lodash": "^4.16.6",
-    "plist": "^2.0.1"
+    "node-forge": "^0.6.46",
+    "plist": "^2.0.1",
+    "uuid": "^3.0.1"
   },
   "devDependencies": {
-    "bufferpack": "0.0.6"
+    "bufferpack": "0.0.6",
+    "colors": "^1.1.2"
   }
 }
