@@ -25,6 +25,15 @@ function Lockdownd (options) {
 
   this.id     = options.id;
   this.serial = options.serial;
+  this.label  = options.label || 'aniwei.studio';
+
+  process.on('SIGINT', (function () {
+    this.stopSession(function () {
+      logger.print('usbmuxd', 'the usbmuxd service was stopped')
+
+      process.exit(0);
+    });
+  }).bind(this));
 }
 
 Lockdownd.prototype = {
@@ -153,6 +162,29 @@ Lockdownd.prototype = {
     }).bind(this));
   },
 
+  stopSession: function (callback) {
+    var plist;
+
+    callback = callback || noop;
+
+    if (this.session) {
+      plist = formatter.plist({
+        Label:      this.label,
+        Request:    'StopSession',
+        HostID:     this.session.id
+      });
+
+      packet(plist, this.socket, (function (res) {
+        var json = res;
+
+        this.session = undefined
+        callback();
+      }).bind(this), 'big-endian');
+    } else {
+      callback();
+    }
+  },
+
   startSession: function (callback) {
     var series = [];
 
@@ -166,13 +198,19 @@ Lockdownd.prototype = {
 
     series.push((function (done) {
       this.getPariRecord(function (json) {
-        done()
+        done();
+      });
+    }).bind(this));
+    
+    series.push((function (done) {
+      this.stopSession(function () {
+        done();
       });
     }).bind(this));
 
     series.push((function (done) {
       var plist = formatter.bplist({
-            Label:      '111',
+            Label:      this.label,
             Request:    'StartSession',
             HostID:     this.host.id,
             SystemBUID: this.buid

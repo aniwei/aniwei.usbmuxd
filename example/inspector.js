@@ -83,7 +83,7 @@ inspector.start(function (bundleManager) {
       //Debugger.setBreakpintByUrl
       //lineNumber,url,columnNumber,condition,options,codition,ignoreCount,actions,autoContinue
 
-      window.page = page;
+      //window.page = page;
     });
   });
 });

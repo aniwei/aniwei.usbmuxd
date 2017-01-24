@@ -111,7 +111,7 @@ BundleManager.prototype = {
     callback = (callback || noop).bind(this);
 
     notify.packet('_rpc_reportIdentifier', json);
-    //notify.packet('_rpc_getConnectedApplications', json);
+    notify.packet('_rpc_getConnectedApplications', json);
 
     // 设置app列表
     notify.on('_rpc_reportConnectedApplicationList:', (function (argv) {
@@ -147,6 +147,10 @@ Bundle.prototype = {
     var notify = this.notify;
 
     callback = callback || noop;
+
+    debugger;
+
+    console.log('listing');
 
     if (this.get('listed')) {
       return this;
