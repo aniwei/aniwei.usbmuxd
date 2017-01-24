@@ -129,7 +129,6 @@ module.exports = {
         res = json[1] || {};
 
         if (res.MessageType == 'ScreenShotReply') {
-          debugger;
           this.deviceDisconnect();
           this.lockdownd.stopSession();
 
