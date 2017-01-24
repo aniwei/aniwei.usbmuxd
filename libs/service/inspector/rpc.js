@@ -29,7 +29,7 @@ module.exports = {
 
   _rpc_forwardIndicateWebView: function (bundle) {
     return {
-      WIRApplicationIdentifierKey: bundle.key,
+      WIRApplicationIdentifierKey: bundle.pid,
       WIRConnectionIdentifierKey:  bundle.uuid,
       WIRPageIdentifierKey:        bundle.index,
       WIRIndicateEnabledKey:       true
@@ -38,7 +38,7 @@ module.exports = {
 
   _rpc_forwardGetListing: function (bundle) {
     return {
-      WIRApplicationIdentifierKey: bundle.key,
+      WIRApplicationIdentifierKey: bundle.pid,
       WIRConnectionIdentifierKey:  bundle.uuid
     }
   },
@@ -61,7 +61,7 @@ module.exports = {
       WIRAutomaticallyPause:        false,
       WIRSenderKey:                 bundle.sender,
       WIRPageIdentifierKey:         bundle.index,
-      WIRApplicationIdentifierKey:  bundle.key
+      WIRApplicationIdentifierKey:  bundle.pid
     };
   },
 
@@ -70,7 +70,7 @@ module.exports = {
       WIRConnectionIdentifierKey:   bundle.uuid,
       WIRSenderKey:                 bundle.sender,
       WIRPageIdentifierKey:         bundle.index,
-      WIRApplicationIdentifierKey:  bundle.key,
+      WIRApplicationIdentifierKey:  bundle.pid,
       WIRSocketDataKey:             data
     };
   }

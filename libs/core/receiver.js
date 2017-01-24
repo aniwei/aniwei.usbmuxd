@@ -135,6 +135,10 @@ module.exports = {
     var handle = (type.toLowerCase() == 'xml' ? this.xml : this.binary)(callback, endian);
 
     return function (data) {
+      if (data.length === 65536) {
+        debugger;
+      }
+
       try {
         handle.call(this, data);
       } catch (e) {

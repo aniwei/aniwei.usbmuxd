@@ -27,11 +27,7 @@ module.exports = {
       this.socket         = socket;
       this.bundleManager  = bundleManager;
 
-      bundleManager.registe(function () {
-        logger.print('webinspector', 'the webinspector connection was registed');
-
-        callback.call(bundleManager, bundleManager, lockdownd);
-      });
+      bundleManager.registe(callback);
     }).bind(this));
 
     this.service        = service;
