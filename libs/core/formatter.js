@@ -73,3 +73,18 @@ function FormatterError (message) {
 
 FormatterError.prototype      = Error.prototype;
 FormatterError.prototype.name = 'Formatter Error';
+
+// var test = `62 70 6c 69 73 74 30 30 a2 01 02 5f
+// 10 17 44 4c 4d 65 73 73 61 67 65 50 72 6f 63 65
+// 73 73 4d 65 73 73 61 67 65 d1 03 04 5b 4d 65 73
+// 73 61 67 65 54 79 70 65 5f 10 11 53 63 72 65 65
+// 6e 53 68 6f 74 52 65 71 75 65 73 74 08 0b 25 28
+// 34 00 00 00 00 00 00 01 01 00 00 00 00 00 00 00
+// 05 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+// 48`.match(/\w+/g).map(function (val) {
+//   return parseInt(val, 16);
+// });
+
+// var d = module.exports.parse(new Buffer(test));
+
+// console.log(d)

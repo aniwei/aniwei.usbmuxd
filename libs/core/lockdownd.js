@@ -26,6 +26,7 @@ function Lockdownd (options) {
   this.id     = options.id;
   this.serial = options.serial;
   this.label  = options.label || 'aniwei.studio';
+<<<<<<< HEAD
 
   process.on('SIGINT', (function () {
     this.stopSession(function () {
@@ -34,6 +35,8 @@ function Lockdownd (options) {
       process.exit(0);
     });
   }).bind(this));
+=======
+>>>>>>> f920192bc91204c843e12e30231c2c76d4e6646c
 }
 
 Lockdownd.prototype = {
@@ -124,6 +127,8 @@ Lockdownd.prototype = {
     callback = callback || noop;
 
     if (!this.session) {
+      var self = this;
+
       series.push((function (done) {
         this.startSession(function () {
           done();
@@ -162,27 +167,40 @@ Lockdownd.prototype = {
     }).bind(this));
   },
 
+  queryType: function (callback) {
+    var plist = formatter.bplist({
+          Request: 'QueryType',
+          Label:    this.label
+        });
+
+    callback = callback || noop;
+
+    packet(plist, this.socket, function (res) {
+      callback(res.Type);
+    }, 'big-endian');
+  },
+
   stopSession: function (callback) {
     var plist;
 
     callback = callback || noop;
 
-    if (this.session) {
-      plist = formatter.plist({
-        Label:      this.label,
-        Request:    'StopSession',
-        HostID:     this.session.id
-      });
-
-      packet(plist, this.socket, (function (res) {
-        var json = res;
-
-        this.session = undefined
-        callback();
-      }).bind(this), 'big-endian');
-    } else {
-      callback();
+    if (!this.session) {
+      return callback();
     }
+
+    plist = formatter.bplist({
+      Label:      this.label,
+      Request:    'StopSession',
+      SessionID:  this.session.id
+    });
+
+    packet(plist, this.socket, function () {
+    }, 'big-endian');
+
+    this.session = undefined;
+
+    callback();
   },
 
   startSession: function (callback) {
@@ -197,13 +215,15 @@ Lockdownd.prototype = {
     }).bind(this));
 
     series.push((function (done) {
-      this.getPariRecord(function (json) {
-        done();
-      });
+      this.queryType(function (type) {
+        if (type == 'com.apple.mobile.lockdown') {
+          done();
+        }
+      })
     }).bind(this));
-    
+
     series.push((function (done) {
-      this.stopSession(function () {
+      this.getPariRecord(function (json) {
         done();
       });
     }).bind(this));

@@ -3,9 +3,12 @@ var uuid        = require('uuid'),
     Emitter     = require('events').EventEmitter,
     receiver    = require('../../core/receiver'),
     formatter   = require('../../core/formatter'),
+    logger      = require('../../core/logger'),
     rpc         = require('./rpc'),
-    bid         = 0,
-    MessageNotifyCenter;
+    pid         = 0,
+    noop;
+
+noop = function () {};
 
 module.exports = function (name, key) {
   return new BundleManager(name, key);
@@ -24,7 +27,7 @@ function Notify (socket) {
           buffer;
 
       buffer  = plist.WIRFinalMessageKey || plist.WIRPartialMessageKey;
-      size += buffer.length;
+      size    += buffer.length;
 
       finalMessage = finalMessage || [];
       finalMessage.push(buffer);
@@ -35,16 +38,46 @@ function Notify (socket) {
         finalMessage  = undefined;
         size          = 0;
 
-        console.log(data.__selector + ':', data.__argument);
+        this.dispatch(data);
 
         this.emit(data.__selector, data.__argument);
       }
     }).bind(this);
   }).bind(this)(), 'big-endian'));
+
+  this.tasks = [];
 }
 
 Notify.prototype = {
   __proto__: Emitter.prototype,
+
+  dispatch: function (data) {
+    var selector = data.__selector,
+        argv     = data.__argument;
+
+    this.tasks.forEach((function (task) {
+      var name = task + '.' + selector;
+
+      this.emit(name, argv);
+    }).bind(this));
+
+    this.emit(selector, argv);
+  },
+
+  registe: function (name) {
+    if (name) {
+      this.tasks.push(name);
+    }
+  },
+
+  unregiste: function (name) {
+    var index = this.tasks.indexOf(name);
+
+    if (index > -1) {
+      this.tasks.splice(index ,1);
+    }
+  },
+
   packet: function (sel) {
     var argv   = [].slice.call(arguments, 1),
         sel    = rpc.select.apply(rpc, [sel].concat(argv)),
@@ -65,252 +98,350 @@ Notify.prototype = {
 
 function BundleManager (socket) {
   this.uuid         = uuid.v4().toUpperCase();
-  this.bundleTable  = {};
   this.notify       = new Notify(socket);
 }
 
 BundleManager.prototype = {
   __proto__: Emitter.prototype,
-  get: function (name) {
-    var res = this.bundleTable[name];
 
-    if (!res) {
-      Object.keys(this.bundleTable).some((function (key) {
-        var bundle = this.bundleTable[key];
+  watch: function (bundleName) {
+    var notify = this.notify;
 
-        if (bundle.get('key') === name) {
-          return res = bundle;
-        }
-      }).bind(this));
-    }
-
-    return res;
-  },
-
-  bundle: function (options) {
-    var bundle   = options.bundle,
-        which    = this.bundleTable[bundle],
-        pages;
-
-    if (!which) {
-      this.bundleTable[bundle] = which = new Bundle();
-    }
-
-    options = assign({}, options, {
-      uuid:   this.uuid,
-      notify: this.notify
-    });
-
-    which.set(options);
+    return new Task(bundleName, this.uuid, notify);
   },
 
   registe: function (callback) {
     var json   = {uuid: this.uuid},
-        notify = this.notify;
+        notify = this.notify,
+        bundleHandle;
 
     callback = (callback || noop).bind(this);
 
     notify.packet('_rpc_reportIdentifier', json);
-    notify.packet('_rpc_getConnectedApplications', json);
 
-    // 设置app列表
-    notify.on('_rpc_reportConnectedApplicationList:', (function (argv) {
-      var dict = argv.WIRApplicationDictionaryKey;
-
-      Object.keys(dict).forEach((function (pid) {
-        var app     = dict[pid];
-
-        this.bundle({
-          bundle:   app.WIRApplicationBundleIdentifierKey,
-          key:      app.WIRApplicationIdentifierKey,
-          ready:    app.WIRIsApplicationReadyKey,
-          proxy:    app.WIRIsApplicationProxyKey,
-          active:   app.WIRIsApplicationActiveKey,
-        });
-
-      }).bind(this));
-
-      callback(this);
-    }).bind(this));
+    callback(this);
   }
 }
 
-function Bundle () {
-  this.settings   = {};
-  this.notify     = null;
+function Task (name, uuid, notify) {
+  var json = {uuid: uuid};
+
+  this.name          = name;
+  this.notify        = notify;
+  this.uuid          = uuid;
+  this.bundleTable   = {};
+  this.pageTable     = {};
+  this.pageContainer = [];
+
+  this.method   = [
+    '_rpc_reportConnectedApplicationList',
+    '_rpc_applicationDisconnected',
+    '_rpc_applicationConnected',
+    '_rpc_applicationUpdated',
+    '_rpc_applicationSentListing'
+  ].map((function (met) {
+    return {
+      name:     name + '.' + met + ':',
+      handle:   (this[met] || noop).bind(this)
+    }
+  }).bind(this));
+
+  notify.packet('_rpc_getConnectedApplications', json);
+
+  this.attach();
 }
 
-Bundle.prototype = {
+Task.prototype = {
   __proto__: Emitter.prototype,
 
-  listing: function (callback) {
+  detach: function () {
     var notify = this.notify;
 
-    callback = callback || noop;
+    this.method.forEach(function (method) {
+      notify.removeAllListeners(method.name);
+    });
 
-    debugger;
+    notify.unregiste(this.name);
+  },
 
-    console.log('listing');
+  attach: function () {
+    var notify = this.notify;
 
-    if (this.get('listed')) {
-      return this;
-    }
+    this.method.forEach(function (method) {
+      notify.on(method.name, method.handle);
+    });
 
-    this.set('listed', true);
+    notify.registe(this.name);
+  },
 
-    notify.packet('_rpc_forwardGetListing', this.get('key', 'uuid'));
-    notify.on('_rpc_applicationSentListing:', (function (argv) {
-      var key         = argv.WIRApplicationIdentifierKey,
-          table       = argv.WIRListingKey,
-          bundle      = this,
-          bundleData,
-          pages,
-          data,
-          keys;
+  inspect: function (page) {
+    var inst = new Page(page, this.uuid, this.notify);
 
-      if (bundle.get('key') === key) {
-        bundleData = bundle.get('bundle', 'uuid', 'notify', 'key');
-        pages      = bundle.get('page');
+    this.pageContainer.push(inst);
 
-        keys = Object.keys(table);
+    return inst;
+  },
 
-        bundle.set({
-          page: keys.map(function (index) {
-            var data = table[index],
-                page;
+  ready: function (callback) {
+    this.on('ready', callback || noop);
+  },
 
-            if (pages) {
-              pages.some(function (p) {
-                var isExist,
-                    pageData = p.get('index', 'key');
+  close: function (callback) {
+    this.on('close', callback || noop);
+  },
 
-                isExist = pageData.index == data.WIRPageIdentifierKey &&
-                  pageData.key           == bundleData.key;
+  _rpc_reportConnectedApplicationList: function (argv) {
+    var dict = argv.WIRApplicationDictionaryKey || {},
+        name = this.name,
+        keys = Object.keys(dict),
+        info,
+        notify,
+        listing,
+        bundleTable;
 
-                if (isExist) {
-                  return page = p;
-                }
-              });
-            }
+    notify      = this.notify;
+    bundleTable = this.bundleTable;
 
-            if (!page) {
-              page = new Page();
-            }
+    listing = (function (pid, bundle) {
+      var original = bundleTable[pid],
+          isModify = true;
 
-            page.set(assign({
-              index:  data.WIRPageIdentifierKey,
-              title:  data.WIRTitleKey,
-              type:   data.WIRTypeKey,
-              url:    data.WIRURLKey,
-              key:    bundleData.key
-            }, bundleData));
-
-            return page;
-          })
-        });
+      if (original) {
+        isModify = !(original.pid   == bundle.WIRApplicationIdentifierKey && 
+                   original.ready   == bundle.WIRIsApplicationReadyKey && 
+                   original.proxy   == bundle.WIRIsApplicationProxyKey && 
+                   original.active  == bundle.WIRIsApplicationActiveKey);
       }
 
-      this.set('listed', false);
+      bundleTable[pid] = {
+        name:     bundle.WIRApplicationBundleIdentifierKey,
+        pid:      bundle.WIRApplicationIdentifierKey,
+        ready:    bundle.WIRIsApplicationReadyKey,
+        proxy:    bundle.WIRIsApplicationProxyKey,
+        active:   bundle.WIRIsApplicationActiveKey,
+      };
 
-      callback(this);
+      if (isModify) {
+        notify.packet('_rpc_forwardGetListing', {
+          uuid:   this.uuid,
+          pid:    pid
+        }); 
+      }
+    }).bind(this);
+
+    keys.forEach((function (pid) {
+      var bundle = dict[pid],
+          bundleName;
+
+      bundleName = bundle.WIRApplicationBundleIdentifierKey;
+
+      if (bundleName === name) {
+        listing(pid, bundle);
+      }
     }).bind(this));
   },
 
-  get: function (key) {
-    var argv = [].slice.call(arguments),
-        res;
+  _rpc_applicationDisconnected: function (argv) {
+    var pageTable   = this.pageTable,
+        bundleTable = this.bundleTable,
+        pid         = argv.WIRApplicationIdentifierKey,
+        container   = this.pageContainer,
+        bundle;
 
-    if (argv.length === 1) {
-      return this.settings[key] || this[key];
+    if (argv.WIRApplicationBundleIdentifierKey == this.name) {
+      if (pid in bundleTable) {
+        bundle = bundleTable[pid];
+
+        delete bundleTable[pid];
+
+        this.pageContainer = container.filter(function (inst) {
+          if (inst.page.pid === pid) {
+            inst.detach();
+
+            return false;
+          }
+
+          return true;
+        });
+      }
     }
-
-    res = {};
-
-    argv.forEach((function (key) {
-      res[key] = this[key] || this.settings[key];
-    }).bind(this));
-
-    return res;
   },
 
-  set: function (key, value) {
-    if (typeof key == 'object') {
-      return Object.keys(key).forEach((function (k) {
-        this.set(k, key[k]);
-      }).bind(this));
-    }
+  _rpc_applicationSentListing: function (argv) {
+    var bundleTable = this.bundleTable,
+        pageTable   = this.pageTable,
+        pid         = argv.WIRApplicationIdentifierKey,
+        keys        = Object.keys(argv.WIRListingKey),
+        listing     = argv.WIRListingKey,
+        notify      = this.notify,
+        isReady,
+        object,
+        sender,
+        page,
+        flat,
+        ls;
+    
+    if (pid in bundleTable) {
+      object = pageTable[pid];
 
-    key in this ?
-      this[key] = value :
-      this.settings[key] = value
+      flat = function (pageTable) {
+        var keys = Object.keys(pageTable),
+            res  = [];
 
-    return this;
-  }
-}
+        keys.forEach(function (pid) {
+          var one = pageTable[pid];
 
-function Page (pages) {
-  this.settings = {};
-  this.mid      = 0;
-  this.sender   = uuid.v4().toUpperCase();
-  this.notify   = null;
-}
+          res = res.concat(Object.keys(one).map(function (index) {
+            return one[index];
+          }));
+        });
 
-Page.prototype = {
-  __proto__:  Emitter.prototype,
-  get:        Bundle.prototype.get,
-  set:        Bundle.prototype.set,
+        return res;
+      }
 
-  getAll: function () {
-    return this.get('key', 'uuid', 'sender', 'index');
-  },
+      if (!(pid in pageTable)) {
+        object = pageTable[pid] = {};
+      }
 
-  startSession: function (index, callback) {
-    var notify = this.notify,
-        all    = this.getAll();
+      keys.forEach((function (idx) {
+        var ref = listing[idx],
+            key = ref.WIRPageIdentifierKey;
 
-    if (typeof index == 'function') {
-      callback = index;
-      index    = 1;
-    }
+        page    = object[key];
 
-    if (!this.get('registed')) {
-      notify.packet('_rpc_forwardIndicateWebView', all);
-      notify.packet('_rpc_forwardSocketSetup', all);
+        if (!(key in object)) {
+          isReady = true
 
-      notify.on('_rpc_applicationSentData:', (function (argv) {
-        var data   = this.get('sender', 'key'),
-            isDest = argv.WIRDestinationKey == data.sender && data.key == argv.WIRApplicationIdentifierKey;
+          sender  = {
+            sender: uuid.v4().toUpperCase()
+          };
 
-        if (isDest) {
-          console.log(argv.WIRMessageDataKey.toString());
+          page = object[key] = assign(page, {
+            index:  ref.WIRPageIdentifierKey,
+            title:  ref.WIRTitleKey,
+            type:   ref.WIRTypeKey,
+            url:    ref.WIRURLKey,
+            pid:    pid
+          }, sender);
+
+          notify.packet('_rpc_forwardSocketSetup', {
+            uuid:   this.uuid,
+            index:  page.index,
+            pid:    pid,
+            sender: page.sender
+          });
         }
       }).bind(this));
 
-      this.set('registed', true);
-    }
+      if (isReady) {
+        ls = flat(pageTable);
 
-    callback = (callback || noop).bind(this);
-    callback(this);
+        if (ls.length > 0) {
+          this.emit('ready', ls);
+        }
+      }
+    }
+  }
+}
+
+function Page (page, uuid, notify) {
+  this.page   = page;
+  this.uuid   = uuid;
+  this.notify = notify;
+  this.mid    = 1;
+  this.name   = this.page.sender;
+
+  this.method   = [
+    '_rpc_applicationSentData'
+  ].map((function (met) {
+    return {
+      name:     this.name + '.' + met + ':',
+      handle:   (this[met] || noop).bind(this)
+    }
+  }).bind(this));
+
+  this.attach();
+}
+
+Page.prototype = {
+  __proto__: Emitter.prototype,
+
+  detach: function () {
+    var notify = this.notify;
+
+    this.method.forEach(function (method) {
+      notify.removeAllListeners(method.name);
+    });
+
+    notify.unregiste(this.name);
   },
 
-  command: function (data) {
+  attach: function () {
+    var notify = this.notify;
+
+    this.method.forEach(function (method) {
+      notify.on(method.name, method.handle);
+    });
+
+    notify.registe(this.name);
+  },
+
+  command: function (cmd, param) {
     var notify  = this.notify,
         json;
 
-    if (Array.isArray(data)) {
-      return data.forEach((function (data) {
+    if (Array.isArray(cmd)) {
+      return cmd.forEach((function (data) {
         this.command(data);
       }).bind(this));
     }
 
+    if (typeof cmd == 'string') {
+      cmd = {
+        method: cmd,
+        params: param
+      };
+    }
+
     json    = new Buffer(JSON.stringify({
-      id:     ++this.mid,
-      method: data.method,
-      params:  data.params
+      id:       this.mid,
+      method:   cmd.method,
+      params:   cmd.params
     }));
 
-    notify.packet('_rpc_forwardSocketData', this.getAll(), json);
+    this.mid += 1;
+
+    notify.packet('_rpc_forwardSocketData', {
+      uuid:   this.uuid,
+      sender: this.page.sender,
+      index:  this.page.index,
+      pid:    this.page.pid
+    }, json);
+
+    logger.print('inspect.sent', this.page.title + ',' + cmd.method);
 
     return this;
-  }
+  },
+
+  message: function (callback) {
+    callback = (callback || noop).bind(this);
+
+    this.on('message', callback);
+  },
+
+  _rpc_applicationSentData: function (argv) {
+    var pid   = argv.WIRApplicationIdentifierKey,
+        dest  = argv.WIRDestinationKey,
+        page  = this.page,
+        data  = JSON.parse(argv.WIRMessageDataKey ? argv.WIRMessageDataKey.toString() : '{}');
+
+    if (
+      pid   == page.pid &&
+      dest  == page.sender
+    ) {
+      logger.print('inspect.received', this.page.title);
+
+      this.emit('message', data);
+    }
+  },
 }
