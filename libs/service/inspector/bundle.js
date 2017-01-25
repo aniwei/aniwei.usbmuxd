@@ -267,6 +267,60 @@ Task.prototype = {
     }
   },
 
+  _rpc_applicationUpdated: function (argv) {
+    var isActive;
+
+    isActive = argv.WIRIsApplicationActiveKey;
+
+    if (!isActive) {
+
+    }
+  },
+
+  _rpc_applicationConnected: function (argv) {
+    var name = this.name,
+        notify,
+        listing,
+        bundleName,
+        bundleTable,
+        pid;
+
+    notify      = this.notify;
+    bundleTable = this.bundleTable;
+    bundleName  = argv.WIRApplicationBundleIdentifierKey;
+    pid         = argv.WIRApplicationIdentifierKey;
+
+    listing = (function (pid, bundle) {
+      var original = bundleTable[pid],
+          isModify = true;
+
+      if (original) {
+        isModify = !(original.pid   == bundle.WIRApplicationIdentifierKey && 
+                   original.ready   == bundle.WIRIsApplicationReadyKey && 
+                   original.proxy   == bundle.WIRIsApplicationProxyKey && 
+                   original.active  == bundle.WIRIsApplicationActiveKey);
+      }
+
+      bundleTable[pid] = {
+        name:     bundle.WIRApplicationBundleIdentifierKey,
+        pid:      bundle.WIRApplicationIdentifierKey,
+        proxy:    bundle.WIRIsApplicationProxyKey,
+        active:   bundle.WIRIsApplicationActiveKey,
+      };
+
+      if (isModify) {
+        notify.packet('_rpc_forwardGetListing', {
+          uuid:   this.uuid,
+          pid:    pid
+        }); 
+      }
+    }).bind(this);
+
+    if (bundleName === name) {
+      listing(pid, argv);
+    }
+  },
+
   _rpc_applicationSentListing: function (argv) {
     var bundleTable = this.bundleTable,
         pageTable   = this.pageTable,
@@ -404,12 +458,10 @@ Page.prototype = {
     }
 
     json    = new Buffer(JSON.stringify({
-      id:       this.mid,
+      id:       cmd.id,
       method:   cmd.method,
       params:   cmd.params
     }));
-
-    this.mid += 1;
 
     notify.packet('_rpc_forwardSocketData', {
       uuid:   this.uuid,

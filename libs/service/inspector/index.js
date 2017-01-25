@@ -31,5 +31,12 @@ module.exports = {
     }).bind(this));
 
     this.service        = service;
+  },
+
+  stop: function () {
+    if (this.socket) {
+      this.lockdownd.stopSession();
+      this.socket.destroy();
+    }
   }
 }

@@ -46,7 +46,7 @@ module.exports = {
     this.service        = service;
   },
 
-  deviceDisconnect: function () {
+  deviceDisconnect: function (callback) {
     var socket = this.socket,
         bplist = formatter.bplist([
           'DLMessageDisconnect',
@@ -56,7 +56,6 @@ module.exports = {
     callback = (callback || noop).bind(this);
 
     packet(bplist, socket, (function (json) {
-      debugger;
       if (json[0] == 'DLMessageDeviceReady') {
         callback();
       }

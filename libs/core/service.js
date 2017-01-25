@@ -33,6 +33,12 @@ Service.prototype = {
       lockdownd.startService({
           service: this.service
       }, (function (service) {
+        //console.log(service)
+
+        if (!service.port) {
+          return this.emit('error', '');
+        }
+
         lockdownd.connect(service.port, (function (socket) {
           callback(socket, lockdownd);
         }).bind(this));

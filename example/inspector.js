@@ -33,6 +33,8 @@ inspector.start(function (bundleManager) {
   task.ready(function (pages) {
     var page;
 
+    debugger;
+
     page = task.inspect(pages.pop());
 
     page.command(enableTable);
@@ -61,3 +63,6 @@ inspector.start(function (bundleManager) {
 
   });
 });
+
+
+window.inspector = inspector;

@@ -185,6 +185,7 @@ Lockdownd.prototype = {
     });
 
     packet(plist, this.socket, function () {
+      debugger;
     }, 'big-endian');
 
     this.session = undefined;
@@ -203,13 +204,15 @@ Lockdownd.prototype = {
       })
     }).bind(this));
 
-    series.push((function (done) {
-      this.queryType(function (type) {
-        if (type == 'com.apple.mobile.lockdown') {
-          done();
-        }
-      })
-    }).bind(this));
+    // series.push((function (done) {
+    //   done();
+    //   // this.queryType(function (type) {
+    //   //   debugger;
+    //   //   if (type == 'com.apple.mobile.lockdown') {
+    //   //     done();
+    //   //   }
+    //   // })
+    // }).bind(this));
 
     series.push((function (done) {
       this.getPariRecord(function (json) {

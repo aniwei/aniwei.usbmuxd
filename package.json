@@ -17,6 +17,7 @@
     "lodash": "^4.16.6",
     "node-forge": "^0.6.46",
     "plist": "^2.0.1",
+    "socket.io": "^1.7.2",
     "uuid": "^3.0.1"
   },
   "devDependencies": {
